@@ -414,12 +414,12 @@ export default function Home() {
             </section>
           ) : null}
 
-        <section className="mt-8 grid gap-6 border-t border-line pt-8 print-avoid-break">
-            <div className="text-sm leading-8 text-neutral-600">
-              <p className="font-medium tracking-[0.16em] text-ink">注意事項</p>
+          <section className="quote-terms-section mt-8 border-t border-line pt-8 print-avoid-break">
+            <div className="quote-terms-copy w-full max-w-none text-sm leading-8 text-neutral-600">
+              <p className="font-medium text-ink">注意事項</p>
               <TermsList />
             </div>
-            <div className="space-y-3 text-sm">
+            <div className="quote-total-summary mt-8 space-y-3 text-sm md:ml-auto md:max-w-80">
               <AmountRow label="總金額" value={total} strong />
               <AmountRow label={`訂金 ${depositRate}%`} value={deposit} />
               <AmountRow label="尾款" value={balance} />
@@ -777,20 +777,17 @@ function NumberInput({
 
 function TermsList() {
   return (
-    <div className="space-y-5">
+    <div className="w-full max-w-none space-y-5 whitespace-normal break-words">
       {terms.map((section) => (
-        <div key={section.title}>
+        <div key={section.title} className="w-full max-w-none whitespace-normal break-words">
           <p className="font-medium text-ink">{section.title}</p>
-        <ol className="mt-2 list-decimal space-y-2 pl-5">
-  {section.items.map((item) => (
-    <li
-      key={item}
-      className="whitespace-normal break-words leading-7"
-    >
-      {item}
-    </li>
-  ))}
-</ol>
+          <ol className="mt-2 w-full max-w-none list-decimal space-y-2 pl-5 leading-7 whitespace-normal break-words">
+            {section.items.map((item) => (
+              <li key={item} className="w-full max-w-none leading-7 whitespace-normal break-words">
+                {item}
+              </li>
+            ))}
+          </ol>
         </div>
       ))}
     </div>

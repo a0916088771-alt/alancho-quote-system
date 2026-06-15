@@ -54,6 +54,32 @@ select {
   .print-avoid-break {
     break-inside: avoid;
   }
+
+  .quote-terms-section {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .quote-terms-copy,
+  .quote-terms-copy div,
+  .quote-terms-copy ol,
+  .quote-terms-copy li {
+    width: 100% !important;
+    max-width: none !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    line-break: auto !important;
+  }
+
+  .quote-total-summary {
+    width: 80mm !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-top: 8mm !important;
+  }
 }
 
 @media screen {
