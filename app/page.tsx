@@ -781,11 +781,16 @@ function TermsList() {
       {terms.map((section) => (
         <div key={section.title}>
           <p className="font-medium text-ink">{section.title}</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            {section.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
+        <ol className="mt-2 list-decimal space-y-2 pl-5">
+  {section.items.map((item) => (
+    <li
+      key={item}
+      className="whitespace-normal break-words leading-7"
+    >
+      {item}
+    </li>
+  ))}
+</ol>
         </div>
       ))}
     </div>
