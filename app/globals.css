@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #f6f4f1;
+}
+
+body {
+  margin: 0;
+  color: #181716;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.92), transparent 32rem),
+    #f6f4f1;
+}
+
+input,
+textarea,
+button,
+select {
+  font: inherit;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-page {
+    box-shadow: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
