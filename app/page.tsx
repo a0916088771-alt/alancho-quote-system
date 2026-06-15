@@ -414,7 +414,7 @@ export default function Home() {
             </section>
           ) : null}
 
-          <section className="mt-8 grid gap-6 border-t border-line pt-8 md:grid-cols-[1fr_20rem] print-avoid-break">
+        <section className="mt-8 grid gap-6 border-t border-line pt-8 print-avoid-break">
             <div className="text-sm leading-8 text-neutral-600">
               <p className="font-medium tracking-[0.16em] text-ink">注意事項</p>
               <TermsList />
