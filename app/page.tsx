@@ -1,137 +1,24 @@
 "use client";
 
 import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { brand, createEmptyClient, createInitialItems, priceItems, terms } from "../lib/quote-config";
+import { readQuoteHistory, writeQuoteHistory } from "../lib/quote-storage";
+import type { ClientInfo, CustomItem, PriceItem, Quote, QuoteLine, SelectedItem, SelectedQuoteLine } from "../lib/quote-types";
+import { formatMoney, makeId, readFileAsDataUrl } from "../lib/quote-utils";
 
-type ClientInfo = {
-  clientName: string;
-  contact: string;
-  shootDate: string;
-  location: string;
-  quoteDate: string;
-  validUntil: string;
-  notes: string;
-};
-
-type SelectedItem = {
-  selected: boolean;
-  quantity: number;
-};
-
-type Quote = {
-  id: string;
-  title: string;
-  createdAt: string;
-  client: ClientInfo;
-  items: Record<string, SelectedItem>;
-  depositRate: number;
-  logoDataUrl: string;
-  qrDataUrl: string;
-  signatureDataUrl: string;
-};
-
-type PriceItem = {
-  id: string;
-  category: "service" | "addon";
-  group: string;
-  name: string;
-  price: number;
-  unit?: string;
-  quantityLabel?: string;
-  quantityEnabled?: boolean;
-};
-
-const brand = {
-  name: "alancho_0",
-  phone: "0905390816",
-  email: "a0916088771@gmail.com"
-};
-
-const today = new Date().toISOString().slice(0, 10);
-
-const priceItems: PriceItem[] = [
-  { id: "reels-shoot", category: "service", group: "動態紀錄", name: "Reels 拍攝", price: 5000 },
-  { id: "reels-edit", category: "service", group: "動態紀錄", name: "Reels 單剪輯", price: 1500 },
-  { id: "video-half", category: "service", group: "動態紀錄", name: "動態紀錄半天", price: 15000 },
-  { id: "video-full", category: "service", group: "動態紀錄", name: "動態紀錄全天", price: 30000 },
-  {
-    id: "video-overtime",
-    category: "service",
-    group: "動態紀錄",
-    name: "超時費",
-    price: 2000,
-    unit: "小時",
-    quantityLabel: "小時",
-    quantityEnabled: true
-  },
-  { id: "photo-half", category: "service", group: "活動平面紀錄", name: "半天 5 小時", price: 8000 },
-  { id: "photo-full", category: "service", group: "活動平面紀錄", name: "一整天 8 小時", price: 15000 },
-  {
-    id: "photo-overtime",
-    category: "service",
-    group: "活動平面紀錄",
-    name: "加時費",
-    price: 2000,
-    unit: "小時",
-    quantityLabel: "小時",
-    quantityEnabled: true
-  },
-  { id: "rush", category: "addon", group: "加購項目", name: "急件", price: 2000 },
-  { id: "raw", category: "addon", group: "加購項目", name: "毛片", price: 2500 },
-  {
-    id: "retouch",
-    category: "addon",
-    group: "加購項目",
-    name: "額外精修",
-    price: 300,
-    unit: "張",
-    quantityLabel: "張數",
-    quantityEnabled: true
-  },
-  { id: "drone", category: "addon", group: "加購項目", name: "空拍", price: 3000 },
-  { id: "video-editing", category: "addon", group: "加購項目", name: "動態剪輯", price: 5000 }
-];
-
-const emptyClient: ClientInfo = {
-  clientName: "",
-  contact: "",
-  shootDate: "",
-  location: "",
-  quoteDate: today,
-  validUntil: "",
-  notes: ""
-};
-
-const initialItems = priceItems.reduce<Record<string, SelectedItem>>((acc, item) => {
-  acc[item.id] = { selected: false, quantity: 1 };
-  return acc;
-}, {});
-
-const storageKey = "alancho_quote_history_v1";
-
-const currency = new Intl.NumberFormat("zh-TW", {
-  maximumFractionDigits: 0
+const emptyCustomItem = (): CustomItem => ({
+  id: makeId(),
+  name: "",
+  price: 0,
+  quantity: 1,
+  note: ""
 });
 
-function formatMoney(value: number) {
-  return `NT$ ${currency.format(value)}`;
-}
-
-function makeId() {
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function Home() {
-  const [client, setClient] = useState<ClientInfo>(emptyClient);
-  const [items, setItems] = useState<Record<string, SelectedItem>>(initialItems);
+  const [client, setClient] = useState<ClientInfo>(() => createEmptyClient());
+  const [items, setItems] = useState<Record<string, SelectedItem>>(() => createInitialItems());
+  const [customItems, setCustomItems] = useState<CustomItem[]>([]);
+  const [quoteNotes, setQuoteNotes] = useState("");
   const [depositRate, setDepositRate] = useState(50);
   const [history, setHistory] = useState<Quote[]>([]);
   const [activeId, setActiveId] = useState("");
@@ -142,14 +29,7 @@ export default function Home() {
   const signatureCanvas = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      try {
-        setHistory(JSON.parse(raw));
-      } catch {
-        localStorage.removeItem(storageKey);
-      }
-    }
+    setHistory(readQuoteHistory());
   }, []);
 
   useEffect(() => {
@@ -163,7 +43,7 @@ export default function Home() {
     context.strokeStyle = "#181716";
   }, []);
 
-  const selectedLines = useMemo(
+  const selectedLines = useMemo<SelectedQuoteLine[]>(
     () =>
       priceItems
         .map((item) => {
@@ -182,7 +62,25 @@ export default function Home() {
 
   const serviceLines = selectedLines.filter((item) => item.category === "service");
   const addonLines = selectedLines.filter((item) => item.category === "addon");
-  const total = selectedLines.reduce((sum, item) => sum + item.subtotal, 0);
+  const customLines = useMemo<QuoteLine[]>(
+    () =>
+      customItems
+        .filter((item) => item.name.trim() || item.price > 0)
+        .map((item) => {
+          const quantity = Math.max(1, Number(item.quantity) || 1);
+          const price = Math.max(0, Number(item.price) || 0);
+          return {
+            id: item.id,
+            name: item.name.trim() || "自訂項目",
+            price,
+            quantity,
+            note: item.note.trim(),
+            subtotal: price * quantity
+          };
+        }),
+    [customItems]
+  );
+  const total = [...selectedLines, ...customLines].reduce((sum, item) => sum + item.subtotal, 0);
   const deposit = Math.round(total * (depositRate / 100));
   const balance = total - deposit;
 
@@ -204,6 +102,25 @@ export default function Home() {
     }));
   }
 
+  function addCustomItem() {
+    setCustomItems((current) => [...current, emptyCustomItem()]);
+  }
+
+  function updateCustomItem(id: string, field: keyof Omit<CustomItem, "id">, value: string | number) {
+    setCustomItems((current) =>
+      current.map((item) => {
+        if (item.id !== id) return item;
+        if (field === "price") return { ...item, price: Math.max(0, Number(value) || 0) };
+        if (field === "quantity") return { ...item, quantity: Math.max(1, Number(value) || 1) };
+        return { ...item, [field]: String(value) };
+      })
+    );
+  }
+
+  function removeCustomItem(id: string) {
+    setCustomItems((current) => current.filter((item) => item.id !== id));
+  }
+
   async function handleUpload(event: ChangeEvent<HTMLInputElement>, setter: (value: string) => void) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -218,6 +135,8 @@ export default function Home() {
       createdAt: new Date().toISOString(),
       client,
       items,
+      customItems,
+      quoteNotes,
       depositRate,
       logoDataUrl,
       qrDataUrl,
@@ -226,13 +145,15 @@ export default function Home() {
     const next = [quote, ...history.filter((item) => item.id !== id)];
     setHistory(next);
     setActiveId(id);
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    writeQuoteHistory(next);
   }
 
   function loadQuote(quote: Quote) {
     setActiveId(quote.id);
     setClient(quote.client);
-    setItems({ ...initialItems, ...quote.items });
+    setItems({ ...createInitialItems(), ...quote.items });
+    setCustomItems(quote.customItems ?? []);
+    setQuoteNotes(quote.quoteNotes ?? "");
     setDepositRate(quote.depositRate);
     setLogoDataUrl(quote.logoDataUrl);
     setQrDataUrl(quote.qrDataUrl);
@@ -248,8 +169,10 @@ export default function Home() {
 
   function newQuote() {
     setActiveId("");
-    setClient(emptyClient);
-    setItems(initialItems);
+    setClient(createEmptyClient());
+    setItems(createInitialItems());
+    setCustomItems([]);
+    setQuoteNotes("");
     setDepositRate(50);
     setSignatureDataUrl("");
     clearSignature();
@@ -258,7 +181,7 @@ export default function Home() {
   function deleteQuote(id: string) {
     const next = history.filter((item) => item.id !== id);
     setHistory(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
+    writeQuoteHistory(next);
     if (activeId === id) newQuote();
   }
 
@@ -409,6 +332,12 @@ export default function Home() {
                   onSelect={updateSelected}
                   onQuantity={updateQuantity}
                 />
+                <CustomItemsEditor
+                  items={customItems}
+                  onAdd={addCustomItem}
+                  onRemove={removeCustomItem}
+                  onUpdate={updateCustomItem}
+                />
               </Panel>
 
               <Panel title="加購項目">
@@ -418,6 +347,16 @@ export default function Home() {
                   state={items}
                   onSelect={updateSelected}
                   onQuantity={updateQuantity}
+                />
+              </Panel>
+
+              <Panel title="報價備註">
+                <textarea
+                  value={quoteNotes}
+                  onChange={(event) => setQuoteNotes(event.target.value)}
+                  rows={5}
+                  className="w-full resize-none border border-line bg-white/60 px-4 py-3 text-sm outline-none transition focus:border-ink"
+                  placeholder="特殊拍攝需求、客戶指定內容、車馬費說明、場地費說明或其他補充事項"
                 />
               </Panel>
 
@@ -463,16 +402,22 @@ export default function Home() {
           <section className="mt-10 border-t border-line pt-8 print-avoid-break">
             <h2 className="mb-5 text-sm font-medium tracking-[0.28em]">報價明細</h2>
             <QuoteTable title="服務明細" lines={serviceLines} />
+            <QuoteTable title="自訂項目" lines={customLines} />
             <QuoteTable title="加購項目" lines={addonLines} />
-            {selectedLines.length === 0 ? <p className="py-8 text-sm text-neutral-500">尚未選擇服務項目。</p> : null}
+            {[...selectedLines, ...customLines].length === 0 ? <p className="py-8 text-sm text-neutral-500">尚未選擇服務項目。</p> : null}
           </section>
+
+          {quoteNotes ? (
+            <section className="mt-8 border-t border-line pt-8 print-avoid-break">
+              <h2 className="mb-4 text-sm font-medium tracking-[0.28em]">報價備註</h2>
+              <p className="whitespace-pre-line text-sm leading-8 text-neutral-600">{quoteNotes}</p>
+            </section>
+          ) : null}
 
           <section className="mt-8 grid gap-6 border-t border-line pt-8 md:grid-cols-[1fr_20rem] print-avoid-break">
             <div className="text-sm leading-8 text-neutral-600">
               <p className="font-medium tracking-[0.16em] text-ink">注意事項</p>
-              <p>報價內容依本單明細為準，檔期以訂金完成後保留。</p>
-              <p>如需更改拍攝日期、地點或服務內容，請提前與攝影師確認。</p>
-              <p>未列於明細之交通、場租或特殊器材需求，將依實際情況另行報價。</p>
+              <TermsList />
             </div>
             <div className="space-y-3 text-sm">
               <AmountRow label="總金額" value={total} strong />
@@ -661,6 +606,72 @@ function ItemGroup({
   );
 }
 
+function CustomItemsEditor({
+  items,
+  onAdd,
+  onRemove,
+  onUpdate
+}: {
+  items: CustomItem[];
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, field: keyof Omit<CustomItem, "id">, value: string | number) => void;
+}) {
+  return (
+    <div className="mt-8 border-t border-line pt-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs tracking-[0.22em] text-neutral-400">自訂項目</p>
+          <p className="mt-2 text-sm text-neutral-500">可加入車馬費、特殊企劃、場地費或其他客製服務。</p>
+        </div>
+        <button type="button" onClick={onAdd} className="border border-ink px-4 py-2 text-xs tracking-[0.18em] transition hover:bg-white">
+          新增項目
+        </button>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="border border-dashed border-line bg-white/40 px-4 py-5 text-sm text-neutral-500">尚未新增自訂項目。</div>
+      ) : (
+        <div className="space-y-4">
+          {items.map((item, index) => {
+            const subtotal = Math.max(0, Number(item.price) || 0) * Math.max(1, Number(item.quantity) || 1);
+
+            return (
+              <div key={item.id} className="border border-line bg-white/50 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="text-xs tracking-[0.22em] text-neutral-400">CUSTOM {index + 1}</p>
+                  <button type="button" onClick={() => onRemove(item.id)} className="text-xs tracking-[0.18em] text-neutral-400 hover:text-ink">
+                    移除
+                  </button>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-[1fr_8rem_7rem]">
+                  <TextInput label="項目名稱" value={item.name} onChange={(value) => onUpdate(item.id, "name", value)} />
+                  <NumberInput label="價格" value={item.price} onChange={(value) => onUpdate(item.id, "price", value)} />
+                  <NumberInput label="數量" value={item.quantity} min={1} onChange={(value) => onUpdate(item.id, "quantity", value)} />
+                </div>
+                <label className="mt-4 block">
+                  <span className="mb-2 block text-xs tracking-[0.2em] text-neutral-500">備註</span>
+                  <textarea
+                    value={item.note}
+                    onChange={(event) => onUpdate(item.id, "note", event.target.value)}
+                    rows={2}
+                    className="w-full resize-none border border-line bg-white/70 px-3 py-2 text-sm outline-none transition focus:border-ink"
+                    placeholder="此項目的說明"
+                  />
+                </label>
+                <div className="mt-4 flex justify-end text-sm">
+                  <span className="border-b border-line pb-2 text-neutral-500">小計</span>
+                  <span className="ml-4 border-b border-line pb-2">{formatMoney(subtotal)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Summary({
   total,
   deposit,
@@ -712,7 +723,7 @@ function QuoteTable({
   lines
 }: {
   title: string;
-  lines: Array<PriceItem & { quantity: number; subtotal: number }>;
+  lines: QuoteLine[];
 }) {
   if (lines.length === 0) return null;
 
@@ -721,17 +732,62 @@ function QuoteTable({
       <p className="mb-3 text-xs tracking-[0.22em] text-neutral-400">{title}</p>
       <div className="overflow-hidden border-y border-line">
         {lines.map((line) => (
-          <div key={line.id} className="grid grid-cols-[1fr_auto] gap-4 border-b border-line py-3 text-sm last:border-b-0 sm:grid-cols-[1fr_6rem_8rem_8rem]">
-            <span>{line.name}</span>
-            <span className="hidden text-right text-neutral-500 sm:block">{formatMoney(line.price)}</span>
-            <span className="hidden text-right text-neutral-500 sm:block">
-              {line.quantity}
-              {line.unit ? ` ${line.unit}` : ""}
-            </span>
-            <span className="text-right">{formatMoney(line.subtotal)}</span>
+          <div key={line.id} className="border-b border-line py-3 text-sm last:border-b-0">
+            <div className="grid grid-cols-[1fr_auto] gap-4 sm:grid-cols-[1fr_6rem_8rem_8rem]">
+              <span>{line.name}</span>
+              <span className="hidden text-right text-neutral-500 sm:block">{formatMoney(line.price)}</span>
+              <span className="hidden text-right text-neutral-500 sm:block">
+                {line.quantity}
+                {line.unit ? ` ${line.unit}` : ""}
+              </span>
+              <span className="text-right">{formatMoney(line.subtotal)}</span>
+            </div>
+            {line.note ? <p className="mt-2 whitespace-pre-line text-xs leading-6 text-neutral-500">{line.note}</p> : null}
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function NumberInput({
+  label,
+  value,
+  min = 0,
+  onChange
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs tracking-[0.2em] text-neutral-500">{label}</span>
+      <input
+        type="number"
+        min={min}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-11 w-full border border-line bg-white/70 px-3 text-right text-sm outline-none transition focus:border-ink"
+      />
+    </label>
+  );
+}
+
+function TermsList() {
+  return (
+    <div className="space-y-5">
+      {terms.map((section) => (
+        <div key={section.title}>
+          <p className="font-medium text-ink">{section.title}</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            {section.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </div>
+      ))}
     </div>
   );
 }
